@@ -171,7 +171,6 @@ public class SwitchVideoTest
     public static void clickOnRemoteVideoAndTest(WebDriver where, WebDriver who)
     {
         System.err.println("Start clickOnRemoteVideoAndTest.");
-
         MeetUIUtils.selectRemoteVideo(where, who);
     }
 
