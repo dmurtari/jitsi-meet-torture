@@ -63,7 +63,7 @@ public class LastNTest
         ConferenceFixture.closeAllParticipants();
 
         WebDriver owner = ConferenceFixture.startOwner(
-            "config.startAudioMuted=0&config.channelLastN=1");
+            "config.channelLastN=1");
         ConferenceFixture.waitForSecondParticipantToConnect();
         WebDriver secondParticipant = ConferenceFixture.getSecondParticipant();
 
@@ -74,6 +74,12 @@ public class LastNTest
                      MeetUIUtils.getThumbnails(owner).size());
         assertEquals("number of visible thumbnails", 2,
                      MeetUIUtils.getVisibleThumbnails(owner).size());
+
+        System.out.println("Muting everyone");
+        new MuteTest("muteOwnerAndCheck").muteOwnerAndCheck();
+        new MuteTest("muteParticipantAndCheck").muteParticipantAndCheck();
+        new MuteTest("muteThirdParticipantAndCheck").muteThirdParticipantAndCheck();
+        System.out.println("Muted everyone");
 
         MeetUIUtils.assertAudioMuted(secondParticipant, owner, "owner");
         MeetUIUtils.assertAudioMuted(owner, secondParticipant, "participant2");
