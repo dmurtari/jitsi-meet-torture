@@ -72,6 +72,12 @@ public class MaxUsersTest
      */
     public void enterWithMaxParticipantsAndCheckDialog() 
     {
+        System.err.println("Starting enterWithMaxParticipantsAndCheckDialog");
+        
+        ConferenceFixture.closeAllParticipants();
+        ConferenceFixture.startOwner("", "maxUsersTest");
+        ConferenceFixture.waitForSecondParticipantToConnect();
+
         String maxUsersString = System.getProperty(MAX_USERS_PROP);
         if(maxUsersString != null)
         {

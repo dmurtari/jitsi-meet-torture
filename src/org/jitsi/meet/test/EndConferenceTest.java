@@ -59,7 +59,7 @@ public class EndConferenceTest
         final String url = owner.getCurrentUrl();
 
         // hangup and wait for redirect
-        MeetUIUtils.clickOnToolbarButtonByClass(owner, "icon-hangup");
+        MeetUIUtils.clickOnToolbarButton(owner, "toolbar_button_hangup");
         TestUtils.waitForCondition(owner, 5,
             new ExpectedCondition<Boolean>()
             {
@@ -68,5 +68,13 @@ public class EndConferenceTest
                     return !url.equals(owner.getCurrentUrl());
                 }
             });
+
+        // Close the owner, as the welcome page is not a state recognized
+        // by the ConferenceFixture and it will fail to figure out that
+        // the owner must be restarted in case any tests are to follow
+        // the EndConferenceTest.
+        // It simpler to close it than implement extra state which would not
+        // be of much use.
+        ConferenceFixture.close(owner);
     }
 }

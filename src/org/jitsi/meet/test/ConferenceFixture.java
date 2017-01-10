@@ -183,7 +183,8 @@ public class ConferenceFixture
         ownerDriver,
         secondParticipantDriver,
         thirdParticipantDriver,
-        otherParticipantDriver
+        otherParticipantDriver,
+        otherDriver
     }
 
     /**
@@ -265,21 +266,41 @@ public class ConferenceFixture
      */
     public static WebDriver startOwner(String fragment)
     {
+        return startOwner(fragment, null);
+    }
+
+    /**
+     * Initializes <tt>currentRoomName</tt> and starts the "owner".
+     * @param fragment fragment to be added the URL opened by the "owner".
+     * @param roomParameter an extra parameter to the url. The fragment adds
+     * parameters as # where roomParameter actually changes query parameters
+     * adding ?something=value.
+     * @return the {@code WebDriver} which was started.
+     */
+    public static WebDriver startOwner(String fragment, String roomParameter)
+    {
         System.err.println("Starting owner participant.");
 
         BrowserType browser
             = BrowserType.valueOfString(System.getProperty(
                     BROWSER_OWNER_NAME_PROP));
 
-        if(owner == null)
+        String roomName = currentRoomName;
+        if(owner == null || roomParameter!= null)
         {
-            currentRoomName = "torture"
+            roomName = currentRoomName = "torture"
                 + String.valueOf((int)(Math.random()*1000000));
 
-            owner = startDriver(browser, Participant.ownerDriver);
+            // we do not persist room params for now, in case of jwt
+            // we want them just for one of the participants
+            if (roomParameter != null)
+                roomName += roomParameter;
+
+            if (owner == null)
+                owner = startDriver(browser, Participant.ownerDriver);
         }
 
-        openRoom(owner, fragment, browser);
+        openRoom(owner, roomName, fragment, browser);
 
         ownerHungUp = false;
 
@@ -293,16 +314,17 @@ public class ConferenceFixture
      * Opens the room for the given participant.
      *
      * @param participant to open the current test room.
+     * @param roomName the room name to join
      * @param fragment adds the given string to the fragment part of the URL
      * @param browser the browser type.
      */
     public static void openRoom(
             WebDriver participant,
+            String roomName,
             String fragment,
             BrowserType browser)
     {
-        String URL = System.getProperty(JITSI_MEET_URL_PROP) + "/"
-            + currentRoomName;
+        String URL = System.getProperty(JITSI_MEET_URL_PROP) + "/" + roomName;
         URL += "#config.requireDisplayName=false";
         URL += "&config.debug=true";
         URL += "&config.disableAEC=true";
@@ -346,9 +368,24 @@ public class ConferenceFixture
         // disables animations
         ((JavascriptExecutor) participant)
             .executeScript("try { jQuery.fx.off = true; } catch(e) {}");
+        
+        // disables mute participant dialog
+        ((JavascriptExecutor) participant)
+            .executeScript("if(window.localStorage)"
+                + "window.localStorage.setItem("
+                + "'dontShowMuteParticipantDialog', 'true');");
 
         ((JavascriptExecutor) participant)
             .executeScript("APP.UI.dockToolbar(true);");
+
+        // disable keyframe animations (.fadeIn and .fadeOut classes)
+        ((JavascriptExecutor) participant)
+            .executeScript("$('<style>.notransition * { "
+                + "animation-duration: 0s !important; "
+                + "-webkit-animation-duration: 0s !important; } </style>')"
+                + ".appendTo(document.head);");
+        ((JavascriptExecutor) participant)
+            .executeScript("$('body').toggleClass('notransition');");
 
         // Hack-in disabling of callstats (old versions of jitsi-meet don't
         // handle URL parameters)
@@ -642,7 +679,7 @@ public class ConferenceFixture
             secondParticipant
                 = startDriver(browser, Participant.secondParticipantDriver);
 
-        openRoom(secondParticipant, fragment, browser);
+        openRoom(secondParticipant, currentRoomName, fragment, browser);
 
         secondParticipantHungUp = false;
 
@@ -681,7 +718,7 @@ public class ConferenceFixture
             thirdParticipant
                 = startDriver(browser, Participant.thirdParticipantDriver);
 
-        openRoom(thirdParticipant, fragment, browser);
+        openRoom(thirdParticipant, currentRoomName, fragment, browser);
 
         thirdParticipantHungUp = false;
 
@@ -711,12 +748,38 @@ public class ConferenceFixture
         WebDriver participant = 
             startDriver(browser, Participant.otherParticipantDriver);
 
-        openRoom(participant, fragment, browser);
+        openRoom(participant, currentRoomName, fragment, browser);
 
         ((JavascriptExecutor) participant)
             .executeScript("document.title='Participant'");
 
         return participant;
+    }
+    
+    /**
+     * Opens URL using new WebDriver.
+     * @param URL the URL to be opened 
+     * @return the {@code WebDriver} which was started.
+     * NOTE: Uses the browser type set for the owner.
+     */
+    public static WebDriver openURL(String URL)
+    {
+        System.err.println("Opening URL: " + URL);
+
+        BrowserType browser
+            = BrowserType.valueOfString(
+                System.getProperty(BROWSER_OWNER_NAME_PROP));
+        
+        WebDriver driver = 
+            startDriver(browser, Participant.otherDriver);
+
+        driver.get(URL);
+        MeetUtils.waitForPageToLoad(driver);
+
+        ((JavascriptExecutor) driver)
+            .executeScript("document.title='Other'");
+
+        return driver;
     }
 
     /**
@@ -732,31 +795,22 @@ public class ConferenceFixture
             return;
         }
 
-        try
+        MeetUIUtils.clickOnToolbarButton(
+            participant, "toolbar_button_hangup", false);
+
+        TestUtils.waitMillis(500);
+
+        if (participant == owner)
         {
-            MeetUIUtils.clickOnToolbarButtonByClassIfDisplayed(
-                participant, "icon-hangup");
-
-            TestUtils.waitMillis(500);
-
-            if (participant == owner)
-            {
-                ownerHungUp = true;
-            }
-            else if (participant == secondParticipant)
-            {
-                secondParticipantHungUp = true;
-            }
-            else if (participant == thirdParticipant)
-            {
-                thirdParticipantHungUp = true;
-            }
+            ownerHungUp = true;
         }
-        catch(Throwable t)
+        else if (participant == secondParticipant)
         {
-            t.printStackTrace();
-
-            quit(participant, false);
+            secondParticipantHungUp = true;
+        }
+        else if (participant == thirdParticipant)
+        {
+            thirdParticipantHungUp = true;
         }
 
         String instanceName = getParticipantName(participant);
@@ -875,7 +929,7 @@ public class ConferenceFixture
      */
     public static void waitForOwnerToJoinMUC()
     {
-        if (owner == null)
+        if (owner == null || ownerHungUp)
             startOwner(null);
 
         MeetUtils.waitForParticipantToJoinMUC(owner, 15);
@@ -916,7 +970,7 @@ public class ConferenceFixture
      * Waits until {@code secondParticipant} has joined the conference (its ICE
      * connection has completed and has it has sent and received data).
      */
-    public static void waitForSecondParticipantToConnect()
+    public static WebDriver waitForSecondParticipantToConnect()
     {
         WebDriver secondParticipant = getSecondParticipant();
         assertNotNull(secondParticipant);
@@ -925,6 +979,7 @@ public class ConferenceFixture
         MeetUtils.waitForSendReceiveData(secondParticipant);
 
         TestUtils.waitMillis(5000);
+        return secondParticipant;
     }
 
     /**
@@ -942,7 +997,7 @@ public class ConferenceFixture
      * Waits until {@code thirdParticipant} has joined the conference (its ICE
      * connection has completed and has it has sent and received data).
      */
-    public static void waitForThirdParticipantToConnect()
+    public static WebDriver waitForThirdParticipantToConnect()
     {
         WebDriver thirdParticipant = getThirdParticipant();
         assertNotNull(thirdParticipant);
@@ -952,6 +1007,7 @@ public class ConferenceFixture
         MeetUtils.waitForRemoteStreams(thirdParticipant, 2);
 
         TestUtils.waitMillis(3000);
+        return thirdParticipant;
     }
 
     /**

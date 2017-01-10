@@ -151,19 +151,43 @@ public class TestUtils
      * @param xpath the xpath to search for the element
      * @param timeout the time to wait for the element in seconds.
      */
-    public static void waitForElementByXPath(
-        WebDriver participant,
-        final String xpath,
-        long timeout)
+    public static WebElement waitForElementByXPath(
+        WebDriver       participant,
+        final String    xpath,
+        long            timeout)
     {
-        new WebDriverWait(participant, timeout)
-            .until(new ExpectedCondition<Boolean>()
+        return waitForElementByXPath(participant, xpath, timeout, null);
+    }
+
+    /**
+     * Waits until an element becomes available.
+     * @param participant the {@code WebDriver}.
+     * @param xpath the xpath to search for the element
+     * @param timeout the time to wait for the element in seconds.
+     * @param errorMessage the error message which should be displayed by
+     * the exception thrown when the check fails.
+     */
+    public static WebElement waitForElementByXPath(
+        WebDriver       participant,
+        final String    xpath,
+        long            timeout,
+        String          errorMessage)
+    {
+        FluentWait<WebDriver> waitImpl
+            = new WebDriverWait(participant, timeout);
+
+        if (errorMessage != null)
+            waitImpl = waitImpl.withMessage(errorMessage);
+
+        return  waitImpl.until(new ExpectedCondition<WebElement>()
+        {
+            public WebElement apply(WebDriver d)
             {
-                public Boolean apply(WebDriver d)
-                {
-                    return !d.findElements(By.xpath(xpath)).isEmpty();
-                }
-            });
+                List<WebElement> elements
+                    = d.findElements(By.xpath(xpath));
+                return elements.isEmpty() ? null : elements.get(0);
+            }
+        });
     }
 
     /**
@@ -232,26 +256,7 @@ public class TestUtils
         final String xpath,
         long timeout)
     {
-        new WebDriverWait(participant, timeout)
-            .until(new ExpectedCondition<Boolean>()
-            {
-                public Boolean apply(WebDriver d)
-                {
-                    List<WebElement> elems = d.findElements(By.xpath(xpath));
-
-                    // element missing
-                    if (elems.isEmpty())
-                        return true;
-
-                    // let's check whether all elements are not displayed
-                    for (WebElement e : elems)
-                    {
-                        if(e.isDisplayed())
-                            return false;
-                    }
-                    return true;
-                }
-            });
+        waitForDisplayedOrNotByXPath(participant, xpath, timeout, false);
     }
 
     /**
@@ -265,13 +270,41 @@ public class TestUtils
         final String xpath,
         long timeout)
     {
+        waitForDisplayedOrNotByXPath(participant, xpath, timeout, true);
+    }
+
+    /**
+     * Waits until an element becomes available and displayed or until the
+     * element becomes either unavailable or not displayed depending on
+     * the <tt>isDisplayed</tt> flag value.
+     *
+     * @param participant the {@code WebDriver}.
+     * @param xpath the xpath to search for the element
+     * @param timeout the time to wait for the element in seconds.
+     * @param isDisplayed determines type of the check. <tt>true</tt> means
+     * we're waiting for the element to become available and <tt>false</tt>
+     * means the element must either be hidden or unavailable.
+     */
+    public static void waitForDisplayedOrNotByXPath(
+        WebDriver        participant,
+        final String     xpath,
+        long             timeout,
+        final boolean    isDisplayed)
+    {
         new WebDriverWait(participant, timeout)
+            .withMessage(
+                "Is " + (isDisplayed ? "" : "not") + "displayed: " + xpath)
             .until(new ExpectedCondition<Boolean>()
             {
                 public Boolean apply(WebDriver d)
                 {
-                    WebElement el = d.findElement(By.xpath(xpath));
-                    return el != null && el.isDisplayed();
+                    List<WebElement> elList = d.findElements(By.xpath(xpath));
+
+                    WebElement el = elList.isEmpty() ? null : elList.get(0);
+
+                    return  isDisplayed
+                        ? el != null && el.isDisplayed()
+                        : el == null || !el.isDisplayed();
                 }
             });
     }
@@ -303,6 +336,33 @@ public class TestUtils
                                         .equals(attributeValue);
                     }
                 });
+    }
+
+    /**
+     * Waits until element will contain class name
+     * passed with parameter
+     * @param participant the {@code WebDriver}.
+     * @param xpath the xpath to search for the element.
+     * @param className expected class value of the element.
+     * @param timeout the time to wait for the element in seconds.
+     */
+    public static void waitForElementContainsClassByXPath(
+            WebDriver participant,
+            final String xpath,
+            final String className,
+            long timeout
+    )
+    {
+        new WebDriverWait(participant, timeout)
+            .until(new ExpectedCondition<Boolean>()
+            {
+                public Boolean apply(WebDriver d)
+                {
+                    WebElement el = d.findElement(By.xpath(xpath));
+                    String classNames = el.getAttribute("class");
+                    return classNames.contains(className);
+                }
+            });
     }
 
     /**
@@ -494,5 +554,23 @@ public class TestUtils
         String script)
     {
         ((JavascriptExecutor) webDriver).executeScript(script);
+    }
+
+    /**
+     * Checks if the given className is contained in the class list of the given
+     * element.
+     *
+     * @param elementName the name of the element, e.g. span, div, etc. It can
+     *                    also start with '/' for direct children and '//' for
+     *                    any child element
+     * @param className the name of the class we're looking for
+     * @return the XPath String for the given element and class names
+     */
+    public static String getXPathStringForClassName(String elementName,
+                                                    String className)
+    {
+        return elementName
+                + "[contains(concat(' ', normalize-space(@class), ' '), ' "
+                + className + " ')]";
     }
 }

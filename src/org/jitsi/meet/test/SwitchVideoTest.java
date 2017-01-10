@@ -22,6 +22,7 @@ import org.openqa.selenium.*;
 /**
  * Tests switching video of participants.
  * @author Damian Minkov
+ * @author Pawel Domas
  */
 public class SwitchVideoTest
     extends TestCase
@@ -78,18 +79,7 @@ public class SwitchVideoTest
     {
         System.err.println("Start clickOnLocalVideoAndTest.");
 
-        WebElement localVideoElem = driver.findElement(
-            By.xpath("//span[@id='localVideoWrapper']/video"));
-
-        // click on local
-        MeetUIUtils.clickOnLocalVideo(driver);
-
-        TestUtils.waitMillis(1000);
-
-        // test is this the video seen
-        assertEquals("Video didn't change to local",
-            MeetUIUtils.getVideoElementID(driver, localVideoElem),
-            MeetUIUtils.getLargeVideoID(driver));
+        MeetUIUtils.selectLocalVideo(driver);
     }
 
     /**
@@ -100,7 +90,9 @@ public class SwitchVideoTest
     {
         System.err.println("Start ownerClickOnRemoteVideoAndTest.");
 
-        clickOnRemoteVideoAndTest(ConferenceFixture.getOwner());
+        clickOnRemoteVideoAndTest(
+            ConferenceFixture.getOwnerInstance(),
+            ConferenceFixture.getSecondParticipantInstance());
     }
 
     /**
@@ -174,46 +166,13 @@ public class SwitchVideoTest
      * Clicks on the remote video thumbnail and checks whether the large video
      * is the remote one.
      *
-     * @param driver
+     * @param where
      */
-    public static void clickOnRemoteVideoAndTest(WebDriver driver)
+    public static void clickOnRemoteVideoAndTest(WebDriver where, WebDriver who)
     {
         System.err.println("Start clickOnRemoteVideoAndTest.");
 
-        // first wait for remote video to be visible
-        String remoteThumbXpath
-            = "//span[starts-with(@id, 'participant_') " +
-            " and contains(@class,'videocontainer')]";
-        // has the src attribute, those without it is the videobridge video tag
-        // which is not displayed, it is used for rtcp
-        String remoteThumbVideoXpath
-            = remoteThumbXpath
-                + "/video[starts-with(@id, 'remoteVideo_')]";
-
-        TestUtils.waitForElementByXPath(
-            driver,
-            remoteThumbVideoXpath,
-            5
-        );
-
-        WebElement remoteThumb = driver
-            .findElement(By.xpath(remoteThumbVideoXpath));
-
-        assertNotNull("Remote video not found", remoteThumb);
-
-        // click on remote
-        driver.findElement(By.xpath(remoteThumbXpath))
-            .click();
-
-        TestUtils.waitMillis(10000);
-
-        // Obtain the remote video src *after* we have clicked the thumbnail
-        // and have waited. With simulcast enabled, the remote stream may
-        // change.
-        // test is this the video seen
-        assertEquals("Video didn't change to remote one",
-            MeetUIUtils.getVideoElementID(driver, remoteThumb),
-            MeetUIUtils.getLargeVideoID(driver));
+        MeetUIUtils.selectRemoteVideo(where, who);
     }
 
     /**
@@ -224,7 +183,8 @@ public class SwitchVideoTest
     {
         System.err.println("Start participantClickOnLocalVideoAndTest.");
 
-        clickOnLocalVideoAndTest(ConferenceFixture.getSecondParticipant());
+        clickOnLocalVideoAndTest(
+            ConferenceFixture.getSecondParticipantInstance());
     }
 
     /**
@@ -235,7 +195,9 @@ public class SwitchVideoTest
     {
         System.err.println("Start participantClickOnRemoteVideoAndTest.");
 
-        clickOnRemoteVideoAndTest(ConferenceFixture.getSecondParticipant());
+        clickOnRemoteVideoAndTest(
+            ConferenceFixture.getSecondParticipantInstance(),
+            ConferenceFixture.getOwnerInstance());
     }
 
 }

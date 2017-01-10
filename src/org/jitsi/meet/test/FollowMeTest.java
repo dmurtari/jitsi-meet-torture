@@ -102,10 +102,21 @@ public class FollowMeTest
 
     /**
      * Checks that "Follow me" checkbox is only visible for moderator.
+     * If all moderators is enabled skip this check.
      */
     public void testFollowMeCheckboxVisibleOnlyForModerator()
     {
         System.err.println("Start testFollowMeCheckboxVisibleOnlyForModerator");
+
+        Boolean allModeratorsEnabled = (Boolean)(
+            (JavascriptExecutor) ConferenceFixture.getSecondParticipant())
+            .executeScript(
+                "return !!interfaceConfig.DISABLE_FOCUS_INDICATOR;");
+        // if all are moderators skip this check
+        if (allModeratorsEnabled) {
+            System.err.println("All moderators enabled, skipping check!");
+            return;
+        }
 
         WebDriver secondParticipant = ConferenceFixture.getSecondParticipant();
 
@@ -157,19 +168,19 @@ public class FollowMeTest
         MeetUIUtils.displayFilmStripPanel(owner);
         MeetUIUtils.displayFilmStripPanel(secondParticipant);
 
-        MeetUIUtils.clickOnToolbarButton(owner, "bottom_toolbar_film_strip");
+        owner.findElement(By.id("hideVideoToolbar")).click();
+
+        TestUtils.waitForElementContainsClassByXPath(
+                owner, filmStripXPath, "hidden", 10);
+        TestUtils.waitForElementContainsClassByXPath(
+                secondParticipant, filmStripXPath, "hidden", 10);
+
+        owner.findElement(By.id("hideVideoToolbar")).click();
 
         TestUtils.waitForElementAttributeValueByXPath(
-                owner, filmStripXPath, "class", "hidden", 10);
+                owner, filmStripXPath, "class", "filmstrip__videos", 10);
         TestUtils.waitForElementAttributeValueByXPath(
-                secondParticipant, filmStripXPath, "class", "hidden", 10);
-
-        MeetUIUtils.clickOnToolbarButton(owner, "bottom_toolbar_film_strip");
-
-        TestUtils.waitForElementAttributeValueByXPath(
-                owner, filmStripXPath, "class", "", 10);
-        TestUtils.waitForElementAttributeValueByXPath(
-                secondParticipant, filmStripXPath, "class", "", 10);
+                secondParticipant, filmStripXPath, "class", "filmstrip__videos", 10);
     }
 
     /**
@@ -187,8 +198,7 @@ public class FollowMeTest
 
         // let's make video of second participant active
         ((JavascriptExecutor)owner).executeScript(
-            "$(\"span[id='participant_" + secondParticipantResource + "']" +
-                    "[class='videocontainer']\").click()");
+            "$(\"span[id='participant_" + secondParticipantResource + "']\").click()");
 
         TestUtils.waitMillis(5000);
 
